@@ -418,6 +418,85 @@ def add_test_data(current_user: User = Depends(get_current_active_user), db: Ses
             detail=f"Error adding test data: {str(e)}"
         )
 
+@app.post("/test-pdf-upload")
+def test_pdf_upload(
+    company_name: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Test PDF upload functionality with mock data"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can test PDF upload"
+        )
+    
+    try:
+        # Get or create company
+        company = db.query(Company).filter(Company.name == company_name).first()
+        if not company:
+            company = Company(name=company_name)
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+        
+        # Mock PDF extraction data
+        mock_extracted_data = {
+            'balance_sheet': [
+                {
+                    'fiscal_year': '2024',
+                    'metric_type': 'total_assets',
+                    'value': 1755986.0,
+                    'description': 'Total Assets'
+                },
+                {
+                    'fiscal_year': '2024',
+                    'metric_type': 'total_liabilities',
+                    'value': 1200000.0,
+                    'description': 'Total Liabilities'
+                }
+            ],
+            'profit_loss': [
+                {
+                    'fiscal_year': '2024',
+                    'metric_type': 'revenue',
+                    'value': 250000.0,
+                    'description': 'Total Revenue'
+                }
+            ],
+            'cash_flow': []
+        }
+        
+        # Save extracted data to database
+        entries_added = 0
+        for section, entries in mock_extracted_data.items():
+            for entry_data in entries:
+                entry = BalanceSheetEntry(
+                    company_id=company.id,
+                    fiscal_year=entry_data['fiscal_year'],
+                    metric_type=entry_data['metric_type'],
+                    value=entry_data['value'],
+                    description=entry_data['description']
+                )
+                db.add(entry)
+                entries_added += 1
+        
+        db.commit()
+        
+        return {
+            "message": "Mock PDF data processed successfully",
+            "company_id": company.id,
+            "entries_added": entries_added,
+            "sections_processed": list(mock_extracted_data.keys())
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing mock PDF data: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

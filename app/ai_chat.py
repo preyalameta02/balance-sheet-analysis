@@ -23,7 +23,9 @@ class BalanceSheetChat:
                 self.llm = ChatOpenAI(
                     model_name="gpt-3.5-turbo",
                     temperature=0.1,
-                    openai_api_key=settings.openai_api_key
+                    openai_api_key=settings.openai_api_key,
+                    max_retries=2,  # Add retry limit
+                    request_timeout=30  # Add timeout
                 )
                 self.openai_available = True
                 logger.info("OpenAI initialized successfully")
@@ -259,8 +261,16 @@ class BalanceSheetChat:
                     answer = response.content
                     
                 except Exception as e:
-                    logger.warning(f"OpenAI API failed: {e}. Using fallback response.")
-                    answer = self.generate_fallback_response(data, question)
+                    error_msg = str(e).lower()
+                    if "rate limit" in error_msg or "quota" in error_msg or "429" in error_msg:
+                        logger.warning("OpenAI rate limit exceeded. Using fallback response.")
+                        answer = self.generate_fallback_response(data, question)
+                    elif "timeout" in error_msg or "time out" in error_msg:
+                        logger.warning("OpenAI request timed out. Using fallback response.")
+                        answer = self.generate_fallback_response(data, question)
+                    else:
+                        logger.warning(f"OpenAI API failed: {e}. Using fallback response.")
+                        answer = self.generate_fallback_response(data, question)
             else:
                 # Use fallback response when OpenAI is not available
                 answer = self.generate_fallback_response(data, question)
