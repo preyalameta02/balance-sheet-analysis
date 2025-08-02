@@ -7,6 +7,7 @@ import os
 import shutil
 from datetime import timedelta
 import uuid
+import pdfplumber
 
 from app.database import get_db, engine
 from app.models import Base, User, Company, BalanceSheetEntry, RawDocument
