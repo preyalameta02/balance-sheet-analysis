@@ -605,8 +605,8 @@ async def detailed_pdf_debug(
             with pdfplumber.open(file_path) as pdf:
                 debug_info["total_pages"] = len(pdf.pages)
                 
-                # Analyze first 10 pages for headers
-                for page_num in range(min(10, len(pdf.pages))):
+                # Analyze all pages for headers
+                for page_num in range(len(pdf.pages)):
                     page = pdf.pages[page_num]
                     text = page.extract_text()
                     
@@ -644,7 +644,7 @@ async def detailed_pdf_debug(
                                 "sample": text[:500] + "..." if len(text) > 500 else text
                             })
                 
-                debug_info["pages_analyzed"] = min(10, len(pdf.pages))
+                debug_info["pages_analyzed"] = len(pdf.pages)
                 
         except Exception as e:
             debug_info["error"] = str(e)
