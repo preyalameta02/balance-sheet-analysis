@@ -152,8 +152,13 @@ class BalanceSheetParser:
                 if len(row) < 2:
                     continue
                 
-                # Look for metric name in first column
-                metric_name = row[0].strip() if row[0] else ""
+                # Look for metric name in first column or second column
+                metric_name = None
+                if row[0] and row[0].strip():
+                    metric_name = row[0].strip()
+                elif len(row) > 1 and row[1] and row[1].strip():
+                    metric_name = row[1].strip()
+                
                 if not metric_name:
                     continue
                 
@@ -173,11 +178,73 @@ class BalanceSheetParser:
                                 'value': value,
                                 'fiscal_year': year
                             })
+            
+            # If no data found with normal processing, try alternative approach
+            if not data:
+                data = self._process_table_alternative(table)
         
         except Exception as e:
             logger.warning(f"Error processing table: {e}")
         
         return data
+    
+    def _process_table_alternative(self, table: List[List]) -> List[Dict]:
+        """Alternative table processing for complex table structures"""
+        data = []
+        
+        try:
+            # Look for rows with numeric values
+            for row in table:
+                if not row or len(row) < 2:
+                    continue
+                
+                # Find the first non-empty cell that might be a metric name
+                metric_name = None
+                for cell in row:
+                    if cell and cell.strip() and not self._is_numeric(cell):
+                        metric_name = cell.strip()
+                        break
+                
+                if not metric_name:
+                    continue
+                
+                # Find matching metric type
+                metric_type = self._find_metric_type(metric_name)
+                if not metric_type:
+                    continue
+                
+                # Look for numeric values in the row
+                for cell in row:
+                    if cell and self._is_numeric(cell):
+                        value = self.clean_value(cell)
+                        if value is not None:
+                            data.append({
+                                'metric_type': metric_type,
+                                'description': metric_name,
+                                'value': value,
+                                'fiscal_year': "2024"  # Default year
+                            })
+                            break  # Use first numeric value found
+        
+        except Exception as e:
+            logger.warning(f"Error in alternative table processing: {e}")
+        
+        return data
+    
+    def _is_numeric(self, text: str) -> bool:
+        """Check if text contains numeric values"""
+        if not text:
+            return False
+        
+        # Remove common formatting
+        text = text.strip().replace(',', '').replace('₹', '').replace('$', '')
+        
+        # Check if it's a number
+        try:
+            float(text)
+            return True
+        except ValueError:
+            return False
     
     def _find_metric_type(self, metric_name: str) -> Optional[str]:
         """Find metric type from metric name"""
