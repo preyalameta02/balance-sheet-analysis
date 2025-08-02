@@ -4,7 +4,6 @@ import re
 import pandas as pd
 from typing import Dict, List, Tuple, Optional, Any
 import logging
-from decimal import Decimal
 import os
 
 logger = logging.getLogger(__name__)
@@ -27,21 +26,6 @@ class BalanceSheetParser:
             'accounts_payable': ['trade payables', 'accounts payable', 'payables'],
             'short_term_debt': ['short term borrowings', 'short-term borrowings', 'short term debt'],
             'long_term_debt': ['long term borrowings', 'long-term borrowings', 'long term debt']
-        }
-        
-        # Financial patterns for extraction
-        self.financial_patterns = {
-            'total_assets': r'Total Assets.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'total_liabilities': r'Total Liabilities.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'total_equity': r'Total Equity.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'revenue': r'Revenue.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'net_profit': r'Net Profit.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'cash_equivalents': r'Cash and Cash Equivalents.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'inventory': r'Inventories.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'accounts_receivable': r'Trade Receivables.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'accounts_payable': r'Trade Payables.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'short_term_debt': r'Short-term Borrowings.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',
-            'long_term_debt': r'Long-term Borrowings.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)'
         }
     
     def clean_value(self, value_str: str) -> Optional[float]:
@@ -71,7 +55,7 @@ class BalanceSheetParser:
             return None
     
     def extract_table_data(self, pdf_path: str) -> Dict[str, List[Dict]]:
-        """Extract balance sheet data from PDF using multiple methods"""
+        """Extract balance sheet data from PDF using memory-efficient approach"""
         extracted_data = {
             'balance_sheet': [],
             'profit_loss': [],
@@ -79,243 +63,119 @@ class BalanceSheetParser:
         }
         
         try:
-            # Method 1: Extract text and use regex patterns
-            full_text = self.extract_full_text(pdf_path)
-            pattern_data = self.extract_from_patterns(full_text)
+            # Use memory-efficient approach: process page by page
+            with pdfplumber.open(pdf_path) as pdf:
+                total_pages = len(pdf.pages)
+                logger.info(f"Processing PDF with {total_pages} pages")
+                
+                # Process pages in chunks to avoid memory issues
+                chunk_size = 10
+                for start_page in range(0, total_pages, chunk_size):
+                    end_page = min(start_page + chunk_size, total_pages)
+                    
+                    for page_num in range(start_page, end_page):
+                        try:
+                            page = pdf.pages[page_num]
+                            text = page.extract_text()
+                            
+                            if not text:
+                                continue
+                            
+                            # Skip auditor reports
+                            if any(word in text.lower() for word in ['auditor', 'audit', 'opinion', 'report', 'independent']):
+                                continue
+                            
+                            # Look for financial statement headers
+                            if any(keyword in text.lower() for keyword in ['balance sheet', 'profit and loss', 'cash flow', 'consolidated']):
+                                # Extract tables from this page
+                                tables = page.extract_tables()
+                                for table in tables:
+                                    if table and len(table) > 1:
+                                        table_data = self.process_table(table)
+                                        for entry in table_data:
+                                            if entry.get('metric_type'):
+                                                if 'asset' in entry['metric_type'] or 'liability' in entry['metric_type'] or 'equity' in entry['metric_type']:
+                                                    extracted_data['balance_sheet'].append(entry)
+                                                elif 'revenue' in entry['metric_type'] or 'profit' in entry['metric_type'] or 'income' in entry['metric_type']:
+                                                    extracted_data['profit_loss'].append(entry)
+                                                elif 'cash' in entry['metric_type'] or 'flow' in entry['metric_type']:
+                                                    extracted_data['cash_flow'].append(entry)
+                        
+                        except Exception as e:
+                            logger.warning(f"Error processing page {page_num}: {e}")
+                            continue
+                    
+                    # Clear memory after each chunk
+                    if start_page % (chunk_size * 2) == 0:
+                        import gc
+                        gc.collect()
             
-            # Method 2: Extract from tables
-            table_data = self.extract_from_tables(pdf_path)
-            
-            # Method 3: Parse balance sheet sections
-            section_data = self.extract_from_sections(pdf_path)
-            
-            # Combine all extracted data
-            all_data = pattern_data + table_data + section_data
-            
-            # Organize by type
-            for entry in all_data:
-                if entry.get('metric_type'):
-                    if 'asset' in entry['metric_type'] or 'liability' in entry['metric_type'] or 'equity' in entry['metric_type']:
-                        extracted_data['balance_sheet'].append(entry)
-                    elif 'revenue' in entry['metric_type'] or 'profit' in entry['metric_type'] or 'income' in entry['metric_type']:
-                        extracted_data['profit_loss'].append(entry)
-                    elif 'cash' in entry['metric_type'] or 'flow' in entry['metric_type']:
-                        extracted_data['cash_flow'].append(entry)
-            
-            logger.info(f"Extracted {len(all_data)} financial entries")
+            logger.info(f"Extracted {sum(len(entries) for entries in extracted_data.values())} financial entries")
             return extracted_data
             
         except Exception as e:
             logger.error(f"Error parsing PDF: {e}")
             raise
     
-    def extract_full_text(self, pdf_path: str) -> str:
-        """Extract all text from PDF"""
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                text = ""
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
-                return text
-        except Exception as e:
-            logger.error(f"Error extracting text: {e}")
-            return ""
-    
-    def extract_from_patterns(self, text: str) -> List[Dict]:
-        """Extract financial data using regex patterns"""
-        data = []
-        text_lower = text.lower()
-        
-        # Look for year patterns
-        year_pattern = r'\b(20\d{2})\b'
-        years = re.findall(year_pattern, text)
-        years = list(set(years))  # Remove duplicates
-        years.sort(reverse=True)  # Most recent first
-        
-        if not years:
-            years = ["2024", "2023"]  # Default years
-        
-        # Extract data using patterns
-        for metric_type, pattern in self.financial_patterns.items():
-            matches = re.finditer(pattern, text, re.IGNORECASE | re.DOTALL)
-            for match in matches:
-                value_str = match.group(1)
-                value = self.clean_value(value_str)
-                if value is not None:
-                    # Find the metric name from mappings
-                    metric_name = None
-                    for key, keywords in self.metric_mappings.items():
-                        if key == metric_type:
-                            metric_name = keywords[0].title()
-                            break
-                    
-                    if metric_name:
-                        data.append({
-                            'metric_type': metric_type,
-                            'description': metric_name,
-                            'value': value,
-                            'fiscal_year': years[0] if years else "2024"
-                        })
-        
-        return data
-    
-    def extract_from_tables(self, pdf_path: str) -> List[Dict]:
-        """Extract data from PDF tables"""
-        data = []
-        
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page_num, page in enumerate(pdf.pages):
-                    text = page.extract_text()
-                    if not text:
-                        continue
-                    
-                    # Skip auditor reports
-                    if any(word in text.lower() for word in ['auditor', 'audit', 'opinion', 'report']):
-                        continue
-                    
-                    # Look for financial statement headers
-                    if any(keyword in text.lower() for keyword in ['balance sheet', 'profit and loss', 'cash flow']):
-                        tables = page.extract_tables()
-                        for table in tables:
-                            table_data = self.process_table(table)
-                            data.extend(table_data)
-        
-        except Exception as e:
-            logger.error(f"Error extracting from tables: {e}")
-        
-        return data
-    
-    def extract_from_sections(self, pdf_path: str) -> List[Dict]:
-        """Extract data from specific balance sheet sections"""
-        data = []
-        
-        try:
-            doc = fitz.open(pdf_path)
-            
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                text = page.get_text()
-                
-                # Look for balance sheet sections
-                if "Consolidated Balance Sheet" in text or "Balance Sheet as at" in text:
-                    # Extract the next few pages for complete data
-                    section_text = text
-                    for next_page in range(page_num + 1, min(page_num + 5, len(doc))):
-                        section_text += "\n" + doc[next_page].get_text()
-                    
-                    # Parse the section
-                    section_data = self.parse_balance_sheet_section(section_text)
-                    data.extend(section_data)
-                    break  # Found balance sheet, stop searching
-            
-            doc.close()
-        
-        except Exception as e:
-            logger.error(f"Error extracting from sections: {e}")
-        
-        return data
-    
-    def parse_balance_sheet_section(self, text: str) -> List[Dict]:
-        """Parse balance sheet section text"""
-        data = []
-        lines = text.split('\n')
-        
-        # Look for year headers
-        years = []
-        year_pattern = r'\b(20\d{2})\b'
-        for line in lines:
-            years.extend(re.findall(year_pattern, line))
-        years = list(set(years))
-        years.sort(reverse=True)
-        
-        if not years:
-            years = ["2024", "2023"]
-        
-        # Parse lines with financial data
-        for line in lines:
-            # Look for pattern: Label Value1 Value2
-            match = re.match(r'^(.*?)\s+([\d,]+)\s+([\d,]+)$', line.strip())
-            if match:
-                label = match.group(1).strip()
-                value_2024 = self.clean_value(match.group(2))
-                value_2023 = self.clean_value(match.group(3))
-                
-                # Find metric type
-                metric_type = self._find_metric_type(label)
-                if metric_type and value_2024 is not None:
-                    data.append({
-                        'metric_type': metric_type,
-                        'description': label,
-                        'value': value_2024,
-                        'fiscal_year': years[0] if years else "2024"
-                    })
-                
-                if metric_type and value_2023 is not None:
-                    data.append({
-                        'metric_type': metric_type,
-                        'description': label,
-                        'value': value_2023,
-                        'fiscal_year': years[1] if len(years) > 1 else "2023"
-                    })
-        
-        return data
-    
     def process_table(self, table: List[List]) -> List[Dict]:
-        """Process a single table"""
+        """Process a single table with memory-efficient approach"""
         data = []
         
         if not table or len(table) < 2:
             return data
         
-        # Find header row with years
-        header_row = None
-        year_columns = {}
-        
-        for row_idx, row in enumerate(table):
-            if len(row) < 2:
-                continue
+        try:
+            # Find header row with years
+            header_row = None
+            year_columns = {}
             
-            # Look for year headers
-            for col_idx, cell in enumerate(row):
-                if cell and self._is_year_header(cell):
-                    if header_row is None:
-                        header_row = row_idx
-                    year_columns[col_idx] = self._extract_year_from_header(cell)
-        
-        # If no year headers found, use default years
-        if not year_columns:
-            year_columns = {1: "2024", 2: "2023"}
-        
-        # Process data rows
-        for row_idx, row in enumerate(table):
-            if row_idx == header_row:  # Skip header row
-                continue
+            for row_idx, row in enumerate(table):
+                if len(row) < 2:
+                    continue
                 
-            if len(row) < 2:
-                continue
+                # Look for year headers
+                for col_idx, cell in enumerate(row):
+                    if cell and self._is_year_header(cell):
+                        if header_row is None:
+                            header_row = row_idx
+                        year_columns[col_idx] = self._extract_year_from_header(cell)
             
-            # Look for metric name in first column
-            metric_name = row[0].strip() if row[0] else ""
-            if not metric_name:
-                continue
+            # If no year headers found, use default years
+            if not year_columns:
+                year_columns = {1: "2024", 2: "2023"}
             
-            # Find matching metric type
-            metric_type = self._find_metric_type(metric_name)
-            if not metric_type:
-                continue
-            
-            # Extract values from year columns
-            for col_idx, year in year_columns.items():
-                if col_idx < len(row):
-                    value = self.clean_value(row[col_idx])
-                    if value is not None:
-                        data.append({
-                            'metric_type': metric_type,
-                            'description': metric_name,
-                            'value': value,
-                            'fiscal_year': year
-                        })
+            # Process data rows
+            for row_idx, row in enumerate(table):
+                if row_idx == header_row:  # Skip header row
+                    continue
+                    
+                if len(row) < 2:
+                    continue
+                
+                # Look for metric name in first column
+                metric_name = row[0].strip() if row[0] else ""
+                if not metric_name:
+                    continue
+                
+                # Find matching metric type
+                metric_type = self._find_metric_type(metric_name)
+                if not metric_type:
+                    continue
+                
+                # Extract values from year columns
+                for col_idx, year in year_columns.items():
+                    if col_idx < len(row):
+                        value = self.clean_value(row[col_idx])
+                        if value is not None:
+                            data.append({
+                                'metric_type': metric_type,
+                                'description': metric_name,
+                                'value': value,
+                                'fiscal_year': year
+                            })
+        
+        except Exception as e:
+            logger.warning(f"Error processing table: {e}")
         
         return data
     
@@ -363,5 +223,4 @@ class BalanceSheetParser:
             return year_match.group(1)
         
         # Default to 2024 if no year found
-        return "2024" 
         return "2024" 
