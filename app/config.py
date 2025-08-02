@@ -35,6 +35,14 @@ if os.getenv("DATABASE_URL"):
     if settings.database_url.startswith("postgres://"):
         settings.database_url = settings.database_url.replace("postgres://", "postgresql://", 1)
 
+# Override OpenAI API key if provided
+if os.getenv("OPENAI_API_KEY"):
+    settings.openai_api_key = os.getenv("OPENAI_API_KEY")
+
+# Override secret key if provided
+if os.getenv("SECRET_KEY"):
+    settings.secret_key = os.getenv("SECRET_KEY")
+
 # Override allowed origins for production
 if os.getenv("FRONTEND_URL"):
     settings.allowed_origins.append(os.getenv("FRONTEND_URL")) 

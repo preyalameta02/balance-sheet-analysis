@@ -13,12 +13,25 @@ logger = logging.getLogger(__name__)
 
 class BalanceSheetChat:
     def __init__(self):
-        openai.api_key = settings.openai_api_key
-        self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0.1,
-            openai_api_key=settings.openai_api_key
-        )
+        # Only initialize OpenAI if API key is available
+        self.llm = None
+        self.openai_available = False
+        
+        if settings.openai_api_key and settings.openai_api_key.strip():
+            try:
+                openai.api_key = settings.openai_api_key
+                self.llm = ChatOpenAI(
+                    model_name="gpt-3.5-turbo",
+                    temperature=0.1,
+                    openai_api_key=settings.openai_api_key
+                )
+                self.openai_available = True
+                logger.info("OpenAI initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI: {e}")
+                self.openai_available = False
+        else:
+            logger.info("OpenAI API key not provided, using fallback responses only")
         
         self.system_prompt = """You are a financial analyst assistant specializing in balance sheet analysis. 
         You help users understand financial data by providing clear, accurate explanations and insights.
@@ -84,6 +97,24 @@ class BalanceSheetChat:
                     previous = data['total_liabilities'][years[1]]['value']
                     change = ((latest - previous) / previous * 100) if previous != 0 else 0
                     return f"Total liabilities were ₹{latest:,.0f} Cr in {years[0]} and ₹{previous:,.0f} Cr in {years[1]}. This shows a {change:+.1f}% change."
+        
+        if any(word in question_lower for word in ['equity', 'shareholder']):
+            if 'total_equity' in data:
+                years = list(data['total_equity'].keys())
+                if len(years) >= 2:
+                    latest = data['total_equity'][years[0]]['value']
+                    previous = data['total_equity'][years[1]]['value']
+                    change = ((latest - previous) / previous * 100) if previous != 0 else 0
+                    return f"Total equity was ₹{latest:,.0f} Cr in {years[0]} and ₹{previous:,.0f} Cr in {years[1]}. This represents a {change:+.1f}% change."
+        
+        if any(word in question_lower for word in ['cash', 'flow']):
+            if 'cash_flow' in data:
+                years = list(data['cash_flow'].keys())
+                if len(years) >= 2:
+                    latest = data['cash_flow'][years[0]]['value']
+                    previous = data['cash_flow'][years[1]]['value']
+                    change = ((latest - previous) / previous * 100) if previous != 0 else 0
+                    return f"Cash flow was ₹{latest:,.0f} Cr in {years[0]} and ₹{previous:,.0f} Cr in {years[1]}. This shows a {change:+.1f}% change."
         
         # Generic response
         metrics = list(data.keys())
@@ -203,31 +234,35 @@ class BalanceSheetChat:
             # Generate chart data
             chart_data = self.generate_chart_data(data, question)
             
-            # Try to get AI response, fallback to simple response if OpenAI fails
-            try:
-                # Create context for the LLM
-                context = f"""
-                Financial Data Context:
-                {json.dumps(data, indent=2)}
-                
-                User Question: {question}
-                
-                Please provide a comprehensive answer based on the financial data above. 
-                Include specific numbers, trends, and insights. If the data shows multiple years, 
-                calculate year-over-year changes where relevant.
-                """
-                
-                # Generate response using LLM
-                messages = [
-                    SystemMessage(content=self.system_prompt),
-                    HumanMessage(content=context)
-                ]
-                
-                response = await self.llm.ainvoke(messages)
-                answer = response.content
-                
-            except Exception as e:
-                logger.warning(f"OpenAI API failed: {e}. Using fallback response.")
+            # Try to get AI response if OpenAI is available, otherwise use fallback
+            if self.openai_available and self.llm:
+                try:
+                    # Create context for the LLM
+                    context = f"""
+                    Financial Data Context:
+                    {json.dumps(data, indent=2)}
+                    
+                    User Question: {question}
+                    
+                    Please provide a comprehensive answer based on the financial data above. 
+                    Include specific numbers, trends, and insights. If the data shows multiple years, 
+                    calculate year-over-year changes where relevant.
+                    """
+                    
+                    # Generate response using LLM
+                    messages = [
+                        SystemMessage(content=self.system_prompt),
+                        HumanMessage(content=context)
+                    ]
+                    
+                    response = await self.llm.ainvoke(messages)
+                    answer = response.content
+                    
+                except Exception as e:
+                    logger.warning(f"OpenAI API failed: {e}. Using fallback response.")
+                    answer = self.generate_fallback_response(data, question)
+            else:
+                # Use fallback response when OpenAI is not available
                 answer = self.generate_fallback_response(data, question)
             
             return {
