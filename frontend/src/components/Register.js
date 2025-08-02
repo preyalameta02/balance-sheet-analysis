@@ -1,20 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('analyst');
+  const [assignedCompanies, setAssignedCompanies] = useState([]);
+  const [availableCompanies, setAvailableCompanies] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
   
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch available companies when component mounts
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const fetchCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/companies/all`);
+      setAvailableCompanies(response.data);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      toast.error('Failed to load companies');
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  const handleCompanyToggle = (companyId) => {
+    setAssignedCompanies(prev => {
+      if (prev.includes(companyId)) {
+        return prev.filter(id => id !== companyId);
+      } else {
+        return [...prev, companyId];
+      }
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,11 +60,17 @@ const Register = () => {
       toast.error('Password must be at least 6 characters long');
       return;
     }
+
+    // Validate company assignment for CEO and Analyst roles
+    if ((role === 'ceo' || role === 'analyst') && assignedCompanies.length === 0) {
+      toast.error('Please select at least one company for CEO/Analyst role');
+      return;
+    }
     
     setLoading(true);
     
     try {
-      const result = await register(email, password, role);
+      const result = await register(email, password, role, assignedCompanies);
       if (result.success) {
         toast.success('Registration successful!');
         navigate('/dashboard');
@@ -140,7 +178,7 @@ const Register = () => {
                 id="role"
                 name="role"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               >
@@ -150,6 +188,38 @@ const Register = () => {
               </select>
             </div>
           </div>
+
+          {/* Company Assignment Section */}
+          {(role === 'ceo' || role === 'analyst') && (
+            <div className="space-y-4">
+              <div className="text-sm font-medium text-gray-700">
+                Assign Companies ({role === 'ceo' ? 'CEO' : 'Analyst'} can only access assigned companies)
+              </div>
+              {loadingCompanies ? (
+                <div className="text-sm text-gray-500">Loading companies...</div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                  {availableCompanies.length === 0 ? (
+                    <div className="text-sm text-gray-500">
+                      No companies available. Please contact an administrator to add companies.
+                    </div>
+                  ) : (
+                    availableCompanies.map((company) => (
+                      <label key={company.id} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={assignedCompanies.includes(company.id)}
+                          onChange={() => handleCompanyToggle(company.id)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className="text-sm text-gray-700">{company.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <button

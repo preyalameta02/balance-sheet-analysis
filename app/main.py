@@ -334,17 +334,23 @@ def get_companies(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get list of companies based on user role"""
-    
+    """Get companies based on user role"""
     if current_user.role == "ambani_family":
-        # Can see all companies
+        # Ambani family can see all companies
         companies = db.query(Company).all()
-    else:
-        # Can only see assigned companies
-        companies = db.query(Company).filter(
-            Company.id.in_(current_user.assigned_companies)
-        ).all()
+    elif current_user.role == "ceo":
+        # CEO can see companies they're assigned to
+        companies = db.query(Company).filter(Company.id.in_(current_user.assigned_companies)).all()
+    else:  # analyst
+        # Analyst can see companies they're assigned to
+        companies = db.query(Company).filter(Company.id.in_(current_user.assigned_companies)).all()
     
+    return companies
+
+@app.get("/companies/all")
+def get_all_companies(db: Session = Depends(get_db)):
+    """Get all companies for registration form (no auth required)"""
+    companies = db.query(Company).all()
     return companies
 
 @app.get("/metrics")
