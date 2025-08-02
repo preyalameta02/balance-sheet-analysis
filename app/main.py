@@ -561,6 +561,102 @@ async def debug_pdf_upload(
             detail=f"Error in debug PDF upload: {str(e)}"
         )
 
+@app.post("/detailed-pdf-debug")
+async def detailed_pdf_debug(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Detailed PDF debug - show exactly what the parser sees"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can debug PDF upload"
+        )
+    
+    try:
+        # Check file type
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+        
+        # Save file temporarily
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(settings.upload_dir, f"{file_id}.pdf")
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Detailed analysis
+        import pdfplumber
+        
+        debug_info = {
+            "file_name": file.filename,
+            "file_size": file.size,
+            "pages_analyzed": 0,
+            "page_details": [],
+            "headers_found": [],
+            "tables_found": 0,
+            "text_samples": []
+        }
+        
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                debug_info["total_pages"] = len(pdf.pages)
+                
+                # Analyze first 10 pages for headers
+                for page_num in range(min(10, len(pdf.pages))):
+                    page = pdf.pages[page_num]
+                    text = page.extract_text()
+                    
+                    if text:
+                        # Look for financial headers
+                        text_lower = text.lower()
+                        headers_found = []
+                        
+                        if "balance sheet" in text_lower:
+                            headers_found.append("balance_sheet")
+                        if "profit" in text_lower and "loss" in text_lower:
+                            headers_found.append("profit_loss")
+                        if "cash flow" in text_lower:
+                            headers_found.append("cash_flow")
+                        if "consolidated" in text_lower:
+                            headers_found.append("consolidated")
+                        
+                        if headers_found:
+                            debug_info["headers_found"].extend(headers_found)
+                            debug_info["page_details"].append({
+                                "page": page_num + 1,
+                                "headers": headers_found,
+                                "text_preview": text[:200] + "..." if len(text) > 200 else text
+                            })
+                        
+                        # Count tables
+                        tables = page.extract_tables()
+                        if tables:
+                            debug_info["tables_found"] += len(tables)
+                        
+                        # Sample text from first few pages
+                        if page_num < 3:
+                            debug_info["text_samples"].append({
+                                "page": page_num + 1,
+                                "sample": text[:500] + "..." if len(text) > 500 else text
+                            })
+                
+                debug_info["pages_analyzed"] = min(10, len(pdf.pages))
+                
+        except Exception as e:
+            debug_info["error"] = str(e)
+        
+        return debug_info
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in detailed PDF debug: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
