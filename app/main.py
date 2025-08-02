@@ -361,6 +361,63 @@ def get_metrics():
         "non_current_liabilities"
     ]
 
+@app.post("/add-test-data")
+def add_test_data(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """Add test data for development (only for ambani_family role)"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can add test data"
+        )
+    
+    try:
+        # Get or create company
+        company = db.query(Company).filter(Company.name == "Jio Platforms Ltd").first()
+        if not company:
+            company = Company(name="Jio Platforms Ltd")
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+        
+        # Add sample data
+        sample_data = [
+            {"fiscal_year": "2024", "metric_type": "total_assets", "value": 1755986.0, "description": "Total Assets"},
+            {"fiscal_year": "2024", "metric_type": "total_liabilities", "value": 1200000.0, "description": "Total Liabilities"},
+            {"fiscal_year": "2024", "metric_type": "total_equity", "value": 555986.0, "description": "Total Equity"},
+            {"fiscal_year": "2024", "metric_type": "revenue", "value": 250000.0, "description": "Total Revenue"},
+            {"fiscal_year": "2024", "metric_type": "net_profit", "value": 50000.0, "description": "Net Profit"},
+            {"fiscal_year": "2023", "metric_type": "total_assets", "value": 1607431.0, "description": "Total Assets"},
+            {"fiscal_year": "2023", "metric_type": "total_liabilities", "value": 1100000.0, "description": "Total Liabilities"},
+            {"fiscal_year": "2023", "metric_type": "total_equity", "value": 507431.0, "description": "Total Equity"},
+            {"fiscal_year": "2023", "metric_type": "revenue", "value": 220000.0, "description": "Total Revenue"},
+            {"fiscal_year": "2023", "metric_type": "net_profit", "value": 45000.0, "description": "Net Profit"}
+        ]
+        
+        for entry_data in sample_data:
+            entry = BalanceSheetEntry(
+                company_id=company.id,
+                fiscal_year=entry_data['fiscal_year'],
+                metric_type=entry_data['metric_type'],
+                value=entry_data['value'],
+                description=entry_data['description']
+            )
+            db.add(entry)
+        
+        db.commit()
+        
+        return {
+            "message": "Test data added successfully",
+            "company_id": company.id,
+            "entries_added": len(sample_data)
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error adding test data: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
