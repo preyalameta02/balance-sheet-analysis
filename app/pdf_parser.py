@@ -190,7 +190,30 @@ class BalanceSheetParser:
         """Process balance sheet table data"""
         data = []
         
-        for row in table:
+        # Find header row with years
+        header_row = None
+        year_columns = {}
+        
+        for row_idx, row in enumerate(table):
+            if len(row) < 2:
+                continue
+            
+            # Look for year headers in the row
+            for col_idx, cell in enumerate(row):
+                if cell and self._is_year_header(cell):
+                    if header_row is None:
+                        header_row = row_idx
+                    year_columns[col_idx] = self._extract_year_from_header(cell)
+        
+        # If no year headers found, use default years
+        if not year_columns:
+            year_columns = {1: "2024", 2: "2023"}
+        
+        # Process data rows
+        for row_idx, row in enumerate(table):
+            if row_idx == header_row:  # Skip header row
+                continue
+                
             if len(row) < 2:
                 continue
             
@@ -204,16 +227,17 @@ class BalanceSheetParser:
             if not metric_type:
                 continue
             
-            # Extract values from subsequent columns
-            for i in range(1, len(row)):
-                value = self.clean_value(row[i])
-                if value is not None:
-                    data.append({
-                        'metric_type': metric_type,
-                        'description': metric_name,
-                        'value': value,
-                        'fiscal_year': f"202{4-i}" if i <= 2 else "2023-24"  # Adjust based on actual data
-                    })
+            # Extract values from year columns
+            for col_idx, year in year_columns.items():
+                if col_idx < len(row):
+                    value = self.clean_value(row[col_idx])
+                    if value is not None:
+                        data.append({
+                            'metric_type': metric_type,
+                            'description': metric_name,
+                            'value': value,
+                            'fiscal_year': year
+                        })
         
         return data
     
@@ -221,7 +245,30 @@ class BalanceSheetParser:
         """Process profit & loss table data"""
         data = []
         
-        for row in table:
+        # Find header row with years
+        header_row = None
+        year_columns = {}
+        
+        for row_idx, row in enumerate(table):
+            if len(row) < 2:
+                continue
+            
+            # Look for year headers in the row
+            for col_idx, cell in enumerate(row):
+                if cell and self._is_year_header(cell):
+                    if header_row is None:
+                        header_row = row_idx
+                    year_columns[col_idx] = self._extract_year_from_header(cell)
+        
+        # If no year headers found, use default years
+        if not year_columns:
+            year_columns = {1: "2024", 2: "2023"}
+        
+        # Process data rows
+        for row_idx, row in enumerate(table):
+            if row_idx == header_row:  # Skip header row
+                continue
+                
             if len(row) < 2:
                 continue
             
@@ -233,15 +280,17 @@ class BalanceSheetParser:
             if not metric_type:
                 continue
             
-            for i in range(1, len(row)):
-                value = self.clean_value(row[i])
-                if value is not None:
-                    data.append({
-                        'metric_type': metric_type,
-                        'description': metric_name,
-                        'value': value,
-                        'fiscal_year': f"202{4-i}" if i <= 2 else "2023-24"
-                    })
+            # Extract values from year columns
+            for col_idx, year in year_columns.items():
+                if col_idx < len(row):
+                    value = self.clean_value(row[col_idx])
+                    if value is not None:
+                        data.append({
+                            'metric_type': metric_type,
+                            'description': metric_name,
+                            'value': value,
+                            'fiscal_year': year
+                        })
         
         return data
     
@@ -249,7 +298,30 @@ class BalanceSheetParser:
         """Process cash flow table data"""
         data = []
         
-        for row in table:
+        # Find header row with years
+        header_row = None
+        year_columns = {}
+        
+        for row_idx, row in enumerate(table):
+            if len(row) < 2:
+                continue
+            
+            # Look for year headers in the row
+            for col_idx, cell in enumerate(row):
+                if cell and self._is_year_header(cell):
+                    if header_row is None:
+                        header_row = row_idx
+                    year_columns[col_idx] = self._extract_year_from_header(cell)
+        
+        # If no year headers found, use default years
+        if not year_columns:
+            year_columns = {1: "2024", 2: "2023"}
+        
+        # Process data rows
+        for row_idx, row in enumerate(table):
+            if row_idx == header_row:  # Skip header row
+                continue
+                
             if len(row) < 2:
                 continue
             
@@ -261,15 +333,17 @@ class BalanceSheetParser:
             if not metric_type:
                 continue
             
-            for i in range(1, len(row)):
-                value = self.clean_value(row[i])
-                if value is not None:
-                    data.append({
-                        'metric_type': metric_type,
-                        'description': metric_name,
-                        'value': value,
-                        'fiscal_year': f"202{4-i}" if i <= 2 else "2023-24"
-                    })
+            # Extract values from year columns
+            for col_idx, year in year_columns.items():
+                if col_idx < len(row):
+                    value = self.clean_value(row[col_idx])
+                    if value is not None:
+                        data.append({
+                            'metric_type': metric_type,
+                            'description': metric_name,
+                            'value': value,
+                            'fiscal_year': year
+                        })
         
         return data
     
@@ -298,3 +372,42 @@ class BalanceSheetParser:
                 return match.group(1)
         
         return None 
+    
+    def _is_year_header(self, text: str) -> bool:
+        """Check if text is a year header"""
+        if not text:
+            return False
+        
+        text_clean = text.strip().lower()
+        
+        # Look for year patterns
+        year_patterns = [
+            r'\b20\d{2}\b',  # 2024, 2023, etc.
+            r'\b\d{4}\b',    # Any 4-digit number
+            r'year ended',
+            r'as at',
+            r'31st march',
+            r'31 march'
+        ]
+        
+        import re
+        for pattern in year_patterns:
+            if re.search(pattern, text_clean):
+                return True
+        
+        return False
+    
+    def _extract_year_from_header(self, text: str) -> str:
+        """Extract year from header text"""
+        if not text:
+            return "2024"
+        
+        import re
+        
+        # Look for 4-digit year
+        year_match = re.search(r'\b(20\d{2})\b', text)
+        if year_match:
+            return year_match.group(1)
+        
+        # Default to 2024 if no year found
+        return "2024" 
