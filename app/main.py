@@ -146,6 +146,7 @@ async def upload_pdf(
     try:
         # Parse PDF
         extracted_data = pdf_parser.extract_table_data(file_path)
+        print("extracted_data:", extracted_data)
         
         # Save extracted data to database
         for section, entries in extracted_data.items():
