@@ -12,7 +12,8 @@ from app.database import get_db, engine
 from app.models import Base, User, Company, BalanceSheetEntry, RawDocument
 from app.schemas import (
     UserCreate, User as UserSchema, Token, ChatRequest, ChatResponse,
-    DataQuery, ChartDataRequest, BalanceSheetEntry as BalanceSheetEntrySchema
+    DataQuery, ChartDataRequest, BalanceSheetEntry as BalanceSheetEntrySchema,
+    LoginRequest
 )
 from app.auth import (
     get_password_hash, verify_password, create_access_token,
@@ -70,10 +71,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.post("/login", response_model=Token)
-def login(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """Login user and return JWT token"""
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
+    user = db.query(User).filter(User.email == login_data.email).first()
+    if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -85,7 +86,7 @@ def login(email: str = Form(...), password: str = Form(...), db: Session = Depen
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 @app.get("/users/me", response_model=UserSchema)
 def read_users_me(current_user: User = Depends(get_current_active_user)):

@@ -19,6 +19,11 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# Login schemas
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 # Company schemas
 class CompanyBase(BaseModel):
     name: str
@@ -72,6 +77,7 @@ class RawDocument(RawDocumentBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: Optional[User] = None
 
 class TokenData(BaseModel):
     email: Optional[str] = None
