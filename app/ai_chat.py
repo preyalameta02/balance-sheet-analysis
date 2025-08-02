@@ -21,16 +21,16 @@ class BalanceSheetChat:
             try:
                 openai.api_key = settings.openai_api_key
                 self.llm = ChatOpenAI(
-                    model_name="gpt-3.5-turbo",
+                    model_name="o4-mini",  # Changed from gpt-3.5-turbo to o4-mini
                     temperature=0.1,
                     openai_api_key=settings.openai_api_key,
                     max_retries=2,  # Add retry limit
                     request_timeout=30  # Add timeout
                 )
                 self.openai_available = True
-                logger.info("OpenAI initialized successfully")
+                logger.info("OpenAI o4-mini initialized successfully")
             except Exception as e:
-                logger.warning(f"Failed to initialize OpenAI: {e}")
+                logger.warning(f"Failed to initialize OpenAI o4-mini: {e}")
                 self.openai_available = False
         else:
             logger.info("OpenAI API key not provided, using fallback responses only")
