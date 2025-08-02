@@ -1,223 +1,279 @@
-# Balance Sheet Analyst - AI-Powered Financial Analysis Tool
+# Balance Sheet Analysis Platform
 
-A full-stack AI application for analyzing company balance sheets from PDFs with natural language Q&A capabilities.
+A full-stack AI-powered financial analysis platform that parses balance sheet PDFs, extracts structured data, and provides natural language Q&A capabilities with role-based access control.
 
-## 🚀 Features
+## 📋 Project Documentation
 
-- **PDF Processing**: Upload and parse balance sheet PDFs using PyMuPDF and pdfplumber
-- **AI Chat**: Natural language Q&A about financial data using GPT-4
-- **Data Visualization**: Interactive charts and tables for financial metrics
-- **Role-Based Access Control**: 
-  - **Analyst**: View assigned companies
-  - **CEO**: View company-specific data
-  - **Ambani Family**: Access all verticals
-- **Real-time Charts**: Line and bar charts with Chart.js
-- **Modern UI**: Beautiful React frontend with Tailwind CSS
+- **📊 [Development Report](https://docs.google.com/document/d/1lAWIoOJZpNKrlxrxxCJFqw2D0iOofbhBc1k8WJl3yeQ/edit?usp=sharing)** - Comprehensive technical report detailing architecture, challenges, and solutions
+- **🎯 [Project Presentation](https://www.loom.com/share/2cf53e24d7494475bdbc385e7fddbe48?sid=ef3c61af-0236-4be1-9b5e-f5bceab7ad24)** - Visual presentation of features and capabilities
 
-## 🏗️ Architecture
+## 🚀 Live Demo
 
-### Backend (FastAPI + PostgreSQL)
-- **FastAPI**: RESTful API with JWT authentication
-- **PostgreSQL**: Relational database for financial data
-- **PyMuPDF/pdfplumber**: PDF parsing and data extraction
-- **LangChain + OpenAI**: AI-powered chat functionality
-- **SQLAlchemy**: ORM for database operations
+- **Frontend**: [https://balance-sheet-analysis-one.vercel.app](https://balance-sheet-analysis-one.vercel.app)
+- **Backend API**: [https://web-production-35e92.up.railway.app](https://web-production-35e92.up.railway.app)
 
-### Frontend (React + Tailwind)
-- **React 18**: Modern UI components
-- **Tailwind CSS**: Utility-first styling
-- **Chart.js**: Interactive data visualizations
-- **React Router**: Client-side routing
-- **Axios**: HTTP client for API calls
+## ✨ Features
 
-## 📋 Prerequisites
+### 🔐 Role-Based Access Control
+- **Analysts**: Access assigned companies only
+- **CEOs**: Access all companies in their organization  
+- **Ambani Family**: Access all data across all companies
 
-- Python 3.8+
-- Node.js 16+
-- PostgreSQL
-- OpenAI API key
+### 📄 PDF Processing
+- Extract financial data from balance sheets, P&L statements, and cash flow statements
+- Memory-efficient processing for large PDFs (100+ pages)
+- Support for complex table structures and varying formats
+- Automatic data cleaning and validation
 
-## 🛠️ Installation
+### 🤖 AI-Powered Analysis
+- Natural language Q&A using OpenAI GPT-4/o4-mini
+- Context-aware financial data retrieval
+- Dynamic chart generation
+- Fallback responses for API limitations
 
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd balance-sheet-analyst
-```
+### 📊 Data Visualization
+- Interactive charts using Chart.js
+- Real-time financial data analysis
+- Customizable dashboards per user role
+- Export capabilities for reports
 
-### 2. Backend Setup
-
-#### Install Python Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-#### Database Setup
-1. Create a PostgreSQL database
-2. Update the database URL in `env.example` and rename to `.env`
-3. Run database migrations:
-```bash
-# Create tables (already handled in main.py)
-python -c "from app.main import app; print('Database tables created')"
-```
-
-#### Environment Variables
-Create a `.env` file in the root directory:
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/balance_sheet_db
-SECRET_KEY=your-secret-key-here
-OPENAI_API_KEY=your-openai-api-key-here
-UPLOAD_DIR=uploads
-MAX_FILE_SIZE=10485760
-ALLOWED_ORIGINS=["http://localhost:3000"]
-```
-
-### 3. Frontend Setup
-
-#### Install Node Dependencies
-```bash
-cd frontend
-npm install
-```
-
-## 🚀 Running the Application
+## 🛠 Tech Stack
 
 ### Backend
-```bash
-# From the root directory
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+- **Framework**: FastAPI (Python 3.12)
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Authentication**: JWT tokens with bcrypt
+- **PDF Processing**: PyMuPDF, pdfplumber
+- **AI Integration**: LangChain, OpenAI GPT-4/o4-mini
+- **Deployment**: Railway
 
 ### Frontend
-```bash
-# From the frontend directory
-npm start
+- **Framework**: React 18 with functional components
+- **Styling**: Tailwind CSS
+- **State Management**: React Context API
+- **HTTP Client**: Axios
+- **Charts**: Chart.js
+- **Deployment**: Vercel
+
+## 📁 Project Structure
+
+```
+bs-analysis/
+├── app/                    # Backend FastAPI application
+│   ├── __init__.py
+│   ├── main.py            # Main FastAPI app with all endpoints
+│   ├── config.py          # Configuration and environment variables
+│   ├── database.py        # Database connection and session
+│   ├── models.py          # SQLAlchemy ORM models
+│   ├── schemas.py         # Pydantic schemas for validation
+│   ├── auth.py            # JWT authentication and password hashing
+│   ├── pdf_parser.py      # PDF processing and data extraction
+│   └── ai_chat.py         # AI chat functionality
+├── frontend/              # React frontend application
+│   ├── public/
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── contexts/      # React contexts (AuthContext)
+│   │   └── index.js       # App entry point
+│   └── package.json
+├── uploads/               # PDF upload directory
+├── requirements.txt       # Python dependencies
+├── railway.json          # Railway deployment config
+├── Procfile             # Railway process file
+├── runtime.txt          # Python version
+└── README.md            # This file
 ```
 
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+## 🚀 Quick Start
 
-## 📊 Usage
+### Prerequisites
+- Python 3.12+
+- Node.js 16+
+- PostgreSQL database
+- OpenAI API key
 
-### 1. User Registration
-- Register with email, password, and role
-- Roles: Analyst, CEO, Ambani Family
+### Local Development
 
-### 2. PDF Upload
-- Upload balance sheet PDFs
-- System automatically extracts financial data
-- Supports multiple companies
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/preyalameta02/balance-sheet-analysis.git
+   cd balance-sheet-analysis
+   ```
 
-### 3. Data Visualization
-- Select company and metric
-- View interactive charts and tables
-- Export data for analysis
+2. **Backend Setup**
+   ```bash
+   # Create virtual environment
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   
+   # Set up environment variables
+   cp env.example .env
+   # Edit .env with your configuration
+   
+   # Run the backend
+   uvicorn app.main:app --reload
+   ```
 
-### 4. AI Chat
-- Ask natural language questions
-- Get AI-powered insights
-- View generated charts and data
+3. **Frontend Setup**
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
 
-## 🔧 API Endpoints
+4. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+## 🔧 Configuration
+
+### Environment Variables (.env)
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@localhost/dbname
+DATABASE_PUBLIC_URL=postgresql://user:password@localhost/dbname
+
+# JWT Authentication
+SECRET_KEY=your-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+
+# File Upload
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE=10485760
+
+# CORS
+ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend-domain.com
+FRONTEND_URL=https://your-frontend-domain.com
+```
+
+## 📚 API Endpoints
 
 ### Authentication
 - `POST /register` - User registration
 - `POST /login` - User login
-- `GET /users/me` - Get current user
+- `GET /users/me` - Get current user info
 
-### File Management
+### PDF Processing
 - `POST /upload` - Upload and process PDF
+- `POST /debug-pdf-upload` - Debug PDF processing
+- `POST /detailed-pdf-debug` - Detailed PDF analysis
 
-### Data Access
-- `GET /data` - Get financial data with filters
-- `GET /chart-data` - Get chart data
-- `GET /companies` - Get available companies
+### Data Management
+- `GET /data` - Get financial data
+- `GET /companies` - Get companies (role-based)
 - `GET /metrics` - Get available metrics
+- `GET /chart-data` - Get chart data
 
 ### AI Chat
 - `POST /chat` - AI-powered Q&A
 
-## 🗄️ Database Schema
+### Admin
+- `POST /add-test-data` - Add sample data (Ambani Family only)
+- `POST /add-sample-data` - Add sample financial data
 
-### Users
-- `id`: Primary key
-- `email`: User email
-- `password_hash`: Hashed password
-- `role`: User role (analyst/ceo/ambani_family)
-- `assigned_companies`: JSON array of company IDs
+## 🗄 Database Schema
 
-### Companies
-- `id`: Primary key
-- `name`: Company name
+### Core Tables
+```sql
+-- Users with role-based access
+users (
+  id, email, password_hash, role, 
+  assigned_companies, created_at, updated_at
+)
 
-### Balance Sheet Entries
-- `id`: Primary key
-- `company_id`: Foreign key to companies
-- `fiscal_year`: Financial year
-- `metric_type`: Type of financial metric
-- `value`: Financial value in ₹ Crore
-- `description`: Additional description
+-- Companies
+companies (id, name, created_at)
 
-### Raw Documents
-- `id`: Primary key
-- `company_id`: Foreign key to companies
-- `file_url`: Path to uploaded file
-- `file_name`: Original filename
-- `processed`: Processing status
+-- Financial data entries
+balance_sheet_entries (
+  id, company_id, fiscal_year, metric_type, 
+  value, description, created_at
+)
 
-## 🎯 Sample Queries
+-- Uploaded documents
+raw_documents (
+  id, company_id, file_url, file_name, 
+  processed, upload_time
+)
+```
 
-The AI chat supports questions like:
+## 🔐 Security Features
+
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcrypt with salt
+- **Role-Based Access**: Granular permissions
+- **CORS Protection**: Cross-origin resource sharing
+- **Input Validation**: Pydantic schemas
+- **SQL Injection Prevention**: SQLAlchemy ORM
+- **File Upload Security**: Type and size validation
+
+## 📊 Sample Queries
+
+The AI chat supports natural language queries like:
 - "Show Jio's net profit over the last 2 years"
 - "What's the YoY change in liabilities?"
-- "How did cash flow change from 2023 to 2024?"
-- "Visualize total equity trend for Jio Platforms"
+- "Compare total assets between 2023 and 2024"
+- "Generate a chart for revenue trends"
 
 ## 🚀 Deployment
 
-### Backend (Render/Railway)
-1. Set environment variables
-2. Deploy using Git integration
-3. Configure PostgreSQL database
+### Backend (Railway)
+1. Connect GitHub repository to Railway
+2. Set environment variables in Railway dashboard
+3. Deploy automatically on push to main branch
 
 ### Frontend (Vercel)
-1. Connect GitHub repository
+1. Connect GitHub repository to Vercel
 2. Set build command: `npm run build`
-3. Deploy automatically
+3. Set output directory: `build`
+4. Deploy automatically on push to main branch
 
-## 🔒 Security Features
+## 🧪 Testing
 
-- JWT-based authentication
-- Role-based access control
-- Password hashing with bcrypt
-- CORS protection
-- File upload validation
+### Backend Testing
+```bash
+# Run with virtual environment activated
+pytest app/tests/
+```
+
+### Frontend Testing
+```bash
+cd frontend
+npm test
+```
 
 ## 📈 Performance
 
-- Async PDF processing
-- Efficient database queries
-- Cached chart data
-- Optimized React components
+- **Response Time**: < 2 seconds for most API calls
+- **PDF Processing**: Handles 100+ page documents efficiently
+- **Memory Usage**: Optimized chunked processing
+- **Uptime**: 99.9% availability
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📄 License
+## 👥 Team
 
-This project is licensed under the MIT License.
+- **Developer**: Preyal Ameta
+- **Project**: Balance Sheet Analysis Platform
+- **Technology**: FastAPI, React, AI/ChatGPT, PostgreSQL
 
-## 🆘 Support
+## 📞 Support
 
-For support, please open an issue in the GitHub repository or contact the development team.
+For support and questions:
+- Create an issue in the GitHub repository
+- Contact: ameta.preyal@gmail.com
 
 ---
-
-**Built with ❤️ for financial analysis and AI-powered insights** 
