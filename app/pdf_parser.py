@@ -59,27 +59,39 @@ class BalanceSheetParser:
         try:
             # Use pdfplumber for table extraction
             with pdfplumber.open(pdf_path) as pdf:
-                for page_num, page in enumerate(pdf.pages):
+                total_pages = len(pdf.pages)
+                
+                # Search entire PDF for financial statements
+                for page_num in range(total_pages):
+                    page = pdf.pages[page_num]
                     text = page.extract_text()
                     
-                    # Identify section based on headers
-                    if self._is_balance_sheet_page(text):
+                    if not text:
+                        continue
+                    
+                    # Look for actual financial statement headers (not auditor reports)
+                    if self._is_actual_balance_sheet_page(text):
                         tables = page.extract_tables()
                         for table in tables:
                             data = self._process_balance_sheet_table(table)
                             extracted_data['balance_sheet'].extend(data)
                     
-                    elif self._is_profit_loss_page(text):
+                    elif self._is_actual_profit_loss_page(text):
                         tables = page.extract_tables()
                         for table in tables:
                             data = self._process_profit_loss_table(table)
                             extracted_data['profit_loss'].extend(data)
                     
-                    elif self._is_cash_flow_page(text):
+                    elif self._is_actual_cash_flow_page(text):
                         tables = page.extract_tables()
                         for table in tables:
                             data = self._process_cash_flow_table(table)
                             extracted_data['cash_flow'].extend(data)
+                    
+                    # Stop if we found significant data
+                    total_found = sum(len(entries) for entries in extracted_data.values())
+                    if total_found > 10:  # Found enough data
+                        break
         
         except Exception as e:
             logger.error(f"Error parsing PDF: {e}")
@@ -87,34 +99,91 @@ class BalanceSheetParser:
         
         return extracted_data
     
-    def _is_balance_sheet_page(self, text: str) -> bool:
-        """Check if page contains balance sheet data"""
-        balance_sheet_keywords = [
-            'consolidated balance sheet',
-            'balance sheet as at',
-            'assets and liabilities'
-        ]
+    def _is_actual_balance_sheet_page(self, text: str) -> bool:
+        """Check if page contains actual balance sheet data (not auditor reports)"""
         text_lower = text.lower()
+        
+        # Skip auditor reports and other non-financial content
+        skip_keywords = [
+            'auditor', 'audit', 'opinion', 'report', 'independent',
+            'basis for opinion', 'key audit matter', 'material misstatement',
+            'fraud or error', 'audit procedures', 'audit evidence'
+        ]
+        
+        if any(word in text_lower for word in skip_keywords):
+            return False
+        
+        # Look for actual balance sheet headers
+        balance_sheet_keywords = [
+            'consolidated balance sheet as at',
+            'balance sheet as at',
+            'assets and liabilities',
+            'total assets',
+            'total liabilities',
+            'shareholders equity',
+            'equity and liabilities',
+            'non-current assets',
+            'current assets',
+            'non-current liabilities',
+            'current liabilities'
+        ]
+        
         return any(keyword in text_lower for keyword in balance_sheet_keywords)
     
-    def _is_profit_loss_page(self, text: str) -> bool:
-        """Check if page contains profit & loss data"""
+    def _is_actual_profit_loss_page(self, text: str) -> bool:
+        """Check if page contains actual profit & loss data (not auditor reports)"""
+        text_lower = text.lower()
+        
+        # Skip auditor reports and other non-financial content
+        skip_keywords = [
+            'auditor', 'audit', 'opinion', 'report', 'independent',
+            'basis for opinion', 'key audit matter', 'material misstatement',
+            'fraud or error', 'audit procedures', 'audit evidence'
+        ]
+        
+        if any(word in text_lower for word in skip_keywords):
+            return False
+        
+        # Look for actual P&L headers
         pnl_keywords = [
             'consolidated statement of profit and loss',
-            'profit and loss',
-            'income statement'
+            'profit and loss statement',
+            'income statement',
+            'revenue',
+            'net profit',
+            'total income',
+            'total expenses',
+            'profit before tax',
+            'profit after tax'
         ]
-        text_lower = text.lower()
+        
         return any(keyword in text_lower for keyword in pnl_keywords)
     
-    def _is_cash_flow_page(self, text: str) -> bool:
-        """Check if page contains cash flow data"""
+    def _is_actual_cash_flow_page(self, text: str) -> bool:
+        """Check if page contains actual cash flow data (not auditor reports)"""
+        text_lower = text.lower()
+        
+        # Skip auditor reports and other non-financial content
+        skip_keywords = [
+            'auditor', 'audit', 'opinion', 'report', 'independent',
+            'basis for opinion', 'key audit matter', 'material misstatement',
+            'fraud or error', 'audit procedures', 'audit evidence'
+        ]
+        
+        if any(word in text_lower for word in skip_keywords):
+            return False
+        
+        # Look for actual cash flow headers
         cash_flow_keywords = [
             'consolidated statement of cash flow',
             'cash flow statement',
-            'cash flows'
+            'cash flows',
+            'operating activities',
+            'investing activities',
+            'financing activities',
+            'net cash flow'
         ]
-        text_lower = text.lower()
+        
         return any(keyword in text_lower for keyword in cash_flow_keywords)
     
     def _process_balance_sheet_table(self, table: List[List]) -> List[Dict]:
