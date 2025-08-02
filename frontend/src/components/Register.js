@@ -28,11 +28,22 @@ const Register = () => {
   const fetchCompanies = async () => {
     setLoadingCompanies(true);
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/companies/all`);
+      // Use the same API URL pattern as AuthContext
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      console.log('Fetching companies from:', apiUrl);
+      
+      // Create a new axios instance for this request to avoid baseURL conflicts
+      const axiosInstance = axios.create({
+        baseURL: apiUrl
+      });
+      
+      const response = await axiosInstance.get('/companies/all');
+      console.log('Companies response:', response.data);
       setAvailableCompanies(response.data);
     } catch (error) {
       console.error('Error fetching companies:', error);
-      toast.error('Failed to load companies');
+      console.error('Error details:', error.response?.data);
+      toast.error(`Failed to load companies: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoadingCompanies(false);
     }
