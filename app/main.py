@@ -744,6 +744,94 @@ async def detailed_pdf_debug(
             detail=f"Error in detailed PDF debug: {str(e)}"
         )
 
+@app.post("/add-sample-data")
+def add_sample_data(
+    company_name: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Add sample data based on PDF analysis"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can add sample data"
+        )
+    
+    try:
+        # Get or create company
+        company = db.query(Company).filter(Company.name == company_name).first()
+        if not company:
+            company = Company(name=company_name)
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+        
+        # Sample data based on typical balance sheet structure
+        sample_data = [
+            # Balance Sheet Items
+            {"fiscal_year": "2024", "metric_type": "total_assets", "value": 1755986.0, "description": "Total Assets"},
+            {"fiscal_year": "2024", "metric_type": "total_liabilities", "value": 1200000.0, "description": "Total Liabilities"},
+            {"fiscal_year": "2024", "metric_type": "total_equity", "value": 555986.0, "description": "Total Equity"},
+            {"fiscal_year": "2024", "metric_type": "current_assets", "value": 800000.0, "description": "Current Assets"},
+            {"fiscal_year": "2024", "metric_type": "non_current_assets", "value": 955986.0, "description": "Non-Current Assets"},
+            {"fiscal_year": "2024", "metric_type": "current_liabilities", "value": 600000.0, "description": "Current Liabilities"},
+            {"fiscal_year": "2024", "metric_type": "non_current_liabilities", "value": 600000.0, "description": "Non-Current Liabilities"},
+            {"fiscal_year": "2024", "metric_type": "inventory", "value": 200000.0, "description": "Inventories"},
+            {"fiscal_year": "2024", "metric_type": "accounts_receivable", "value": 150000.0, "description": "Trade Receivables"},
+            {"fiscal_year": "2024", "metric_type": "accounts_payable", "value": 180000.0, "description": "Trade Payables"},
+            {"fiscal_year": "2024", "metric_type": "short_term_debt", "value": 300000.0, "description": "Short-term Borrowings"},
+            {"fiscal_year": "2024", "metric_type": "long_term_debt", "value": 400000.0, "description": "Long-term Borrowings"},
+            
+            # 2023 Data
+            {"fiscal_year": "2023", "metric_type": "total_assets", "value": 1607431.0, "description": "Total Assets"},
+            {"fiscal_year": "2023", "metric_type": "total_liabilities", "value": 1100000.0, "description": "Total Liabilities"},
+            {"fiscal_year": "2023", "metric_type": "total_equity", "value": 507431.0, "description": "Total Equity"},
+            {"fiscal_year": "2023", "metric_type": "current_assets", "value": 750000.0, "description": "Current Assets"},
+            {"fiscal_year": "2023", "metric_type": "non_current_assets", "value": 857431.0, "description": "Non-Current Assets"},
+            {"fiscal_year": "2023", "metric_type": "current_liabilities", "value": 550000.0, "description": "Current Liabilities"},
+            {"fiscal_year": "2023", "metric_type": "non_current_liabilities", "value": 550000.0, "description": "Non-Current Liabilities"},
+            {"fiscal_year": "2023", "metric_type": "inventory", "value": 180000.0, "description": "Inventories"},
+            {"fiscal_year": "2023", "metric_type": "accounts_receivable", "value": 140000.0, "description": "Trade Receivables"},
+            {"fiscal_year": "2023", "metric_type": "accounts_payable", "value": 170000.0, "description": "Trade Payables"},
+            {"fiscal_year": "2023", "metric_type": "short_term_debt", "value": 280000.0, "description": "Short-term Borrowings"},
+            {"fiscal_year": "2023", "metric_type": "long_term_debt", "value": 380000.0, "description": "Long-term Borrowings"},
+            
+            # Profit & Loss Items
+            {"fiscal_year": "2024", "metric_type": "revenue", "value": 250000.0, "description": "Revenue"},
+            {"fiscal_year": "2024", "metric_type": "net_profit", "value": 50000.0, "description": "Net Profit"},
+            {"fiscal_year": "2023", "metric_type": "revenue", "value": 220000.0, "description": "Revenue"},
+            {"fiscal_year": "2023", "metric_type": "net_profit", "value": 45000.0, "description": "Net Profit"},
+        ]
+        
+        entries_added = 0
+        for entry_data in sample_data:
+            entry = BalanceSheetEntry(
+                company_id=company.id,
+                fiscal_year=entry_data['fiscal_year'],
+                metric_type=entry_data['metric_type'],
+                value=entry_data['value'],
+                description=entry_data['description']
+            )
+            db.add(entry)
+            entries_added += 1
+        
+        db.commit()
+        
+        return {
+            "message": "Sample data added successfully",
+            "company_id": company.id,
+            "entries_added": entries_added,
+            "balance_sheet_entries": len([e for e in sample_data if 'asset' in e['metric_type'] or 'liability' in e['metric_type'] or 'equity' in e['metric_type']]),
+            "profit_loss_entries": len([e for e in sample_data if 'revenue' in e['metric_type'] or 'profit' in e['metric_type']])
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error adding sample data: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

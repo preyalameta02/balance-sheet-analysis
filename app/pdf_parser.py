@@ -100,6 +100,17 @@ class BalanceSheetParser:
                                                     extracted_data['profit_loss'].append(entry)
                                                 elif 'cash' in entry['metric_type'] or 'flow' in entry['metric_type']:
                                                     extracted_data['cash_flow'].append(entry)
+                            
+                            # Also try to extract from text directly
+                            text_data = self.extract_from_text(text, page_num)
+                            for entry in text_data:
+                                if entry.get('metric_type'):
+                                    if 'asset' in entry['metric_type'] or 'liability' in entry['metric_type'] or 'equity' in entry['metric_type']:
+                                        extracted_data['balance_sheet'].append(entry)
+                                    elif 'revenue' in entry['metric_type'] or 'profit' in entry['metric_type'] or 'income' in entry['metric_type']:
+                                        extracted_data['profit_loss'].append(entry)
+                                    elif 'cash' in entry['metric_type'] or 'flow' in entry['metric_type']:
+                                        extracted_data['cash_flow'].append(entry)
                         
                         except Exception as e:
                             logger.warning(f"Error processing page {page_num}: {e}")
@@ -116,6 +127,64 @@ class BalanceSheetParser:
         except Exception as e:
             logger.error(f"Error parsing PDF: {e}")
             raise
+    
+    def extract_from_text(self, text: str, page_num: int) -> List[Dict]:
+        """Extract financial data directly from text"""
+        data = []
+        
+        try:
+            # Look for patterns like "Total Assets 1,755,986" or "Revenue 250,000"
+            lines = text.split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Look for financial metrics with values
+                for metric_type, keywords in self.metric_mappings.items():
+                    for keyword in keywords:
+                        if keyword.lower() in line.lower():
+                            # Look for numbers in the same line
+                            numbers = re.findall(r'[\d,]+(?:\.\d{2})?', line)
+                            if numbers:
+                                value = self.clean_value(numbers[0])
+                                if value is not None:
+                                    data.append({
+                                        'metric_type': metric_type,
+                                        'description': keyword.title(),
+                                        'value': value,
+                                        'fiscal_year': "2024"  # Default
+                                    })
+                                    break  # Found this metric, move to next line
+            
+            # Also look for year patterns and extract data
+            year_pattern = r'\b(20\d{2})\b'
+            years = re.findall(year_pattern, text)
+            if years:
+                # Look for financial data near year mentions
+                for year in years:
+                    # Find lines with both year and financial data
+                    for line in lines:
+                        if year in line:
+                            for metric_type, keywords in self.metric_mappings.items():
+                                for keyword in keywords:
+                                    if keyword.lower() in line.lower():
+                                        numbers = re.findall(r'[\d,]+(?:\.\d{2})?', line)
+                                        if numbers:
+                                            value = self.clean_value(numbers[0])
+                                            if value is not None:
+                                                data.append({
+                                                    'metric_type': metric_type,
+                                                    'description': keyword.title(),
+                                                    'value': value,
+                                                    'fiscal_year': year
+                                                })
+        
+        except Exception as e:
+            logger.warning(f"Error extracting from text on page {page_num}: {e}")
+        
+        return data
     
     def process_table(self, table: List[List]) -> List[Dict]:
         """Process a single table with memory-efficient approach"""
