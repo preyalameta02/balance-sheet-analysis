@@ -561,6 +561,91 @@ async def debug_pdf_upload(
             detail=f"Error in debug PDF upload: {str(e)}"
         )
 
+@app.post("/test-pdf-processing")
+async def test_pdf_processing(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Test PDF processing step by step"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can test PDF processing"
+        )
+    
+    try:
+        # Save file temporarily
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(settings.upload_dir, f"{file_id}.pdf")
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Step-by-step analysis
+        analysis = {
+            "file_name": file.filename,
+            "file_size": file.size,
+            "total_pages": 0,
+            "pages_with_tables": 0,
+            "tables_found": 0,
+            "financial_pages": 0,
+            "sample_tables": [],
+            "sample_text": []
+        }
+        
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                analysis["total_pages"] = len(pdf.pages)
+                
+                for page_num, page in enumerate(pdf.pages):
+                    text = page.extract_text()
+                    if not text:
+                        continue
+                    
+                    # Check if page has financial content
+                    text_lower = text.lower()
+                    has_financial_content = any(keyword in text_lower for keyword in [
+                        'balance sheet', 'profit and loss', 'cash flow', 'consolidated',
+                        'total assets', 'total liabilities', 'revenue', 'profit'
+                    ])
+                    
+                    if has_financial_content:
+                        analysis["financial_pages"] += 1
+                        
+                        # Get sample text
+                        if len(analysis["sample_text"]) < 3:
+                            analysis["sample_text"].append({
+                                "page": page_num + 1,
+                                "text": text[:500] + "..." if len(text) > 500 else text
+                            })
+                    
+                    # Check for tables
+                    tables = page.extract_tables()
+                    if tables:
+                        analysis["pages_with_tables"] += 1
+                        analysis["tables_found"] += len(tables)
+                        
+                        # Get sample tables
+                        if len(analysis["sample_tables"]) < 2:
+                            for table in tables:
+                                if table and len(table) > 1:
+                                    analysis["sample_tables"].append({
+                                        "page": page_num + 1,
+                                        "table": table[:5]  # First 5 rows
+                                    })
+                                    break
+        
+        except Exception as e:
+            analysis["error"] = str(e)
+        
+        return analysis
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in test PDF processing: {str(e)}"
+        )
+
 @app.post("/detailed-pdf-debug")
 async def detailed_pdf_debug(
     file: UploadFile = File(...),
