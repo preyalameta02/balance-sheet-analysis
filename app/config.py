@@ -29,7 +29,10 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Override database URL for Railway deployment
-if os.getenv("DATABASE_URL"):
+if os.getenv("DATABASE_PUBLIC_URL"):
+    # Use public URL for CLI access
+    settings.database_url = os.getenv("DATABASE_PUBLIC_URL")
+elif os.getenv("DATABASE_URL"):
     settings.database_url = os.getenv("DATABASE_URL")
     # Convert Railway's postgres:// to postgresql:// for SQLAlchemy
     if settings.database_url.startswith("postgres://"):
