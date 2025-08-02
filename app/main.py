@@ -497,6 +497,70 @@ def test_pdf_upload(
             detail=f"Error processing mock PDF data: {str(e)}"
         )
 
+@app.post("/debug-pdf-upload")
+async def debug_pdf_upload(
+    file: UploadFile = File(...),
+    company_name: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Debug PDF upload - test parsing without saving to database"""
+    if current_user.role != "ambani_family":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ambani_family can debug PDF upload"
+        )
+    
+    try:
+        # Check file type
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+        
+        # Save file temporarily
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(settings.upload_dir, f"{file_id}.pdf")
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Try to parse PDF
+        try:
+            extracted_data = pdf_parser.extract_table_data(file_path)
+            
+            # Count entries
+            total_entries = sum(len(entries) for entries in extracted_data.values())
+            
+            return {
+                "message": "PDF parsing completed",
+                "file_name": file.filename,
+                "file_size": file.size,
+                "extracted_data": extracted_data,
+                "total_entries": total_entries,
+                "sections_found": list(extracted_data.keys()),
+                "balance_sheet_entries": len(extracted_data.get('balance_sheet', [])),
+                "profit_loss_entries": len(extracted_data.get('profit_loss', [])),
+                "cash_flow_entries": len(extracted_data.get('cash_flow', []))
+            }
+            
+        except Exception as parse_error:
+            return {
+                "message": "PDF parsing failed",
+                "file_name": file.filename,
+                "file_size": file.size,
+                "error": str(parse_error),
+                "extracted_data": {},
+                "total_entries": 0
+            }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in debug PDF upload: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
