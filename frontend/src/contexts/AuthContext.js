@@ -57,11 +57,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       setUser(userData);
-      toast.success('Login successful!');
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      toast.error(error.response?.data?.detail || 'Login failed');
       return { 
         success: false, 
         error: error.response?.data?.detail || 'Login failed' 
@@ -81,11 +79,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       setUser(userData);
-      toast.success('Registration successful! Please login.');
       return { success: true };
     } catch (error) {
       console.error('Register error:', error);
-      toast.error(error.response?.data?.detail || 'Registration failed');
       return { 
         success: false, 
         error: error.response?.data?.detail || 'Registration failed' 
@@ -97,11 +93,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    toast.success('Logged out successfully');
   };
 
   const value = {
     user,
+    isAuthenticated: !!user,
     login,
     register,
     logout,
